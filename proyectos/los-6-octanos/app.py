@@ -14,6 +14,8 @@ import requests
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from google import genai
+from google.genai import types
 
 # --------------------------------------------------------------------------
 # Configuración
@@ -125,7 +127,7 @@ def pesos(x):
 # --------------------------------------------------------------------------
 st.title("⛽ Precios de Combustibles en Chile")
 st.caption("Datos en vivo de la Comisión Nacional de Energía · api.cne.cl")
-
+                    
 email, password = obtener_credenciales()
 if not email or not password:
     st.error(
@@ -157,51 +159,133 @@ fechas = pd.to_datetime(d[f"_fecha_{combustible}"], errors="coerce")
 if fechas.notna().any():
     st.caption(f"Última actualización de precios en la selección: **{fechas.max().date()}**")
 
-# ---- KPIs ----
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Estaciones", f"{len(d):,}".replace(",", "."))
-c2.metric("Precio promedio", pesos(d[combustible].mean()))
-c3.metric("Más barato", pesos(d[combustible].min()))
-c4.metric("Más caro", pesos(d[combustible].max()))
+# ==========================================================================
+# ESTRUCTURA DE COLUMNAS (UX MEJORADA)
+# ==========================================================================
+# col_viz tomará el 70% de la pantalla (Gráficos), col_chat el 30% (Chatbot)
+col_viz, col_chat = st.columns([7, 3], gap="large")
 
-st.divider()
+with col_viz:
+    # ---- KPIs ----
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Estaciones", f"{len(d):,}".replace(",", "."))
+    c2.metric("Precio promedio", pesos(d[combustible].mean()))
+    c3.metric("Más barato", pesos(d[combustible].min()))
+    c4.metric("Más caro", pesos(d[combustible].max()))
 
-# ---- Visualización 1: Mapa ----
-st.subheader(f"🗺️ Mapa de precios · {combustible}")
-st.plotly_chart(fig_mapa(d, combustible), use_container_width=True)
+    st.divider()
 
-# ---- Visualización 2: Ranking de comunas ----
-st.subheader(f"🏆 Ranking de comunas · {combustible}")
-col_a, col_b = st.columns(2)
-orden = col_a.radio("Mostrar", ["Más baratas", "Más caras"], horizontal=True)
-topn = col_b.slider("Cantidad de comunas", 5, 30, 15)
+    # ---- Visualización 1: Mapa ----
+    st.subheader(f"🗺️ Mapa de precios · {combustible}")
+    st.plotly_chart(fig_mapa(d, combustible), use_container_width=True)
 
-asc = orden == "Más baratas"
-rank = (d.groupby("comuna")[combustible].mean()
-          .sort_values(ascending=asc).head(topn).reset_index())
-fig_rank = px.bar(
-    rank.sort_values(combustible, ascending=not asc),
-    x=combustible, y="comuna", orientation="h",
-    color=combustible, color_continuous_scale="RdYlGn_r",
-    labels={combustible: "Precio promedio ($)", "comuna": ""}, height=500,
-)
-fig_rank.update_layout(coloraxis_showscale=False, margin=dict(l=0, r=0, t=10, b=0))
-st.plotly_chart(fig_rank, use_container_width=True)
+    # ---- Visualización 2: Ranking de comunas ----
+    st.subheader(f"🏆 Ranking de comunas · {combustible}")
+    col_a, col_b = st.columns(2)
+    orden = col_a.radio("Mostrar", ["Más baratas", "Más caras"], horizontal=True)
+    topn = col_b.slider("Cantidad de comunas", 5, 30, 15)
 
-# ---- Visualización 3: Comparación por distribuidor (marca) ----
-st.subheader(f"🏷️ Precio promedio por distribuidor · {combustible}")
-marca = (d.groupby("marca")[combustible]
-           .agg(precio="mean", estaciones="count").reset_index())
-marca = marca[marca["estaciones"] >= 3].sort_values("precio")
-fig_marca = px.bar(
-    marca, x="precio", y="marca", orientation="h",
-    color="precio", color_continuous_scale="RdYlGn_r",
-    hover_data={"estaciones": True, "precio": ":$,.0f"},
-    labels={"precio": "Precio promedio ($)", "marca": ""}, height=500,
-)
-fig_marca.update_layout(coloraxis_showscale=False, margin=dict(l=0, r=0, t=10, b=0))
-st.plotly_chart(fig_marca, use_container_width=True)
-st.caption("Solo se muestran marcas con 3 o más estaciones en la selección.")
+    asc = orden == "Más baratas"
+    rank = (d.groupby("comuna")[combustible].mean()
+              .sort_values(ascending=asc).head(topn).reset_index())
+    fig_rank = px.bar(
+        rank.sort_values(combustible, ascending=not asc),
+        x=combustible, y="comuna", orientation="h",
+        color=combustible, color_continuous_scale="RdYlGn_r",
+        labels={combustible: "Precio promedio ($)", "comuna": ""}, height=500,
+    )
+    fig_rank.update_layout(coloraxis_showscale=False, margin=dict(l=0, r=0, t=10, b=0))
+    st.plotly_chart(fig_rank, use_container_width=True)
 
-st.divider()
-st.caption("Fuente: Comisión Nacional de Energía (CNE) · Proyecto SIC Coding & Programming")
+    # ---- Visualización 3: Comparación por distribuidor (marca) ----
+    st.subheader(f"🏷️ Precio promedio por distribuidor · {combustible}")
+    marca = (d.groupby("marca")[combustible]
+               .agg(precio="mean", estaciones="count").reset_index())
+    marca = marca[marca["estaciones"] >= 3].sort_values("precio")
+    fig_marca = px.bar(
+        marca, x="precio", y="marca", orientation="h",
+        color="precio", color_continuous_scale="RdYlGn_r",
+        hover_data={"estaciones": True, "precio": ":$,.0f"},
+        labels={"precio": "Precio promedio ($)", "marca": ""}, height=500,
+    )
+    fig_marca.update_layout(coloraxis_showscale=False, margin=dict(l=0, r=0, t=10, b=0))
+    st.plotly_chart(fig_marca, use_container_width=True)
+    st.caption("Solo se muestran marcas con 3 o más estaciones en la selección.")
+    st.caption("Fuente: Comisión Nacional de Energía (CNE) · Proyecto SIC Coding & Programming")
+
+with col_chat:
+    # ==========================================================================
+    # 🤖 MÓDULO DE IA: ESTILO ASTRO-PAWS (PURO Y SIN LANGCHAIN)
+    # ==========================================================================
+    if df is not None:
+        st.subheader("🤖 Asistente Virtual")
+        st.markdown("<small>Pregúntame sobre los datos. Ej: *¿En qué comuna está la Gasolina 95 más barata?*</small>", unsafe_allow_html=True)
+
+        try:
+            google_api_key = st.secrets["GOOGLE_API_KEY"]
+        except Exception:
+            google_api_key = os.environ.get("GOOGLE_API_KEY")
+
+        if not google_api_key:
+            st.warning("Configura GOOGLE_API_KEY en secrets.toml")
+        else:
+            # 1. Inicializamos el cliente exacto que usaste en Astro-Paws
+            cliente = genai.Client(api_key=google_api_key)
+
+            # 2. Transformamos la base de datos a un formato que Gemini pueda "leer"
+            # Nos quedamos con las columnas clave para ahorrar memoria
+            columnas_clave = ['region', 'comuna', 'direccion', 'marca', 'Gasolina 93', 'Gasolina 95', 'Diésel']
+            datos_texto = df[columnas_clave].to_csv(index=False)
+
+            # 3. El System Prompt directo y claro
+            INSTRUCCIONES = f"""
+            Eres un asistente experto en el mercado de combustibles de Chile.
+            
+            Aquí tienes la base de datos completa y actualizada de las estaciones de servicio en formato CSV:
+            --- INICIO DE DATOS ---
+            {datos_texto}
+            --- FIN DE DATOS ---
+
+            REGLAS:
+            1. Responde preguntas basándote ÚNICAMENTE en los datos de arriba.
+            2. Si preguntan por "bencina" asume 'Gasolina 93'.
+            3. Formatea los precios siempre como peso chileno (Ej: $1.250 sin decimales).
+            4. Responde de manera natural, conversacional y directa, sin mostrar tablas a menos que se te pida.
+            """
+
+            # 4. Manejo del historial en la memoria de Streamlit
+            if "chat_sesion" not in st.session_state:
+                # Creamos el chat con memoria nativa, igual que en tu backend de Flask
+                st.session_state.chat_sesion = cliente.chats.create(
+                    model="gemini-2.5-flash",
+                    config=types.GenerateContentConfig(
+                        system_instruction=INSTRUCCIONES,
+                        temperature=0.2 # Un toque de naturalidad sin perder precisión
+                    )
+                )
+                st.session_state.mensajes_chat = []
+
+            chat_container = st.container(height=600)
+
+            # Dibujar mensajes previos
+            for mensaje in st.session_state.mensajes_chat:
+                with chat_container.chat_message(mensaje["rol"]):
+                    st.markdown(mensaje["contenido"])
+
+            pregunta = st.chat_input("Escribe tu pregunta aquí...")
+
+            if pregunta:
+                st.session_state.mensajes_chat.append({"rol": "user", "contenido": pregunta})
+                with chat_container.chat_message("user"):
+                    st.markdown(pregunta)
+
+                with chat_container.chat_message("assistant"):
+                    with st.spinner("Leyendo la base de datos..."):
+                        try:
+                            # Enviamos el mensaje directo, el SDK maneja la memoria solo
+                            respuesta = st.session_state.chat_sesion.send_message(pregunta)
+                            st.markdown(respuesta.text)
+                            st.session_state.mensajes_chat.append({"rol": "assistant", "contenido": respuesta.text})
+                            
+                        except Exception as e:
+                            st.error(f"Error de conexión espacial: {e}")
