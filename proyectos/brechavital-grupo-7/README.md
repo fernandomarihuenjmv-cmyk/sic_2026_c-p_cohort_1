@@ -79,12 +79,12 @@ GESAssist/
 
 ## 🧑‍💻 Equipo de Trabajo
 
-| Integrante                | Rol en el Proyecto                 |
-|---------------------------|------------------------------------|
-| **Matías Manríquez**      | Data Scientist & Analista de Datos |
-| **José Salgado Escalona** | Data Scientist & Analista de Datos |
-| **Ignacio Madriaga**      | Data Scientist & Analista de Datos |
-| **Daniel Segovia**        | Data Scientist & Analista de Datos |
+| Integrante                | Rol en el Proyecto                 | GitHub                                      |
+|---------------------------|------------------------------------|---------------------------------------------|
+| **Matías Manríquez**      | Data Scientist & Analista de Datos | [@Mtys24](https://github.com/Mtys24)        |
+| **José Salgado Escalona** | Data Scientist & Analista de Datos | [@JoseRicardoSE](https://github.com/JoseRicardoSE) |
+| **Ignacio Madriaga**      | Data Scientist & Analista de Datos | [@VonCreed-tech](https://github.com/VonCreed-tech) |
+| **Daniel Segovia**        | Data Scientist & Analista de Datos | [@reyconker](https://github.com/reyconker)   |
 
 ---
 *Desarrollado para el proyecto final de Data Science.*
